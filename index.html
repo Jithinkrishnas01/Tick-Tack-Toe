@@ -117,6 +117,8 @@ h1 { margin: 0 0 10px; }
     <button class="primary" onclick="resetGame()">Restart</button>
     <button class="secondary" onclick="toggleAI()">Mode: 2 Players</button>
     <button class="secondary" onclick="toggleTheme()">Toggle Theme</button>
+    <button class="secondary" onclick="changeDifficulty()">Difficulty: Easy</button>
+
   </div>
 </div>
 
@@ -138,6 +140,9 @@ let currentPlayer = "X";
 let gameActive = true;
 let aiEnabled = false;
 
+let difficulty = "easy"; // easy | medium | impossible
+const difficulties = ["easy", "medium", "impossible"];
+
 const wins = [
  [0,1,2],[3,4,5],[6,7,8],
  [0,3,6],[1,4,7],[2,5,8],
@@ -157,15 +162,14 @@ function createBoard() {
 function handleMove(i) {
   if (!gameActive || board[i]) return;
 
-  makeMove(i, currentPlayer);
-
+  makeMove(i, "X");
   if (checkGame()) return;
 
-  currentPlayer = currentPlayer === "X" ? "O" : "X";
-  statusEl.textContent = `Player ${currentPlayer}'s turn`;
+  currentPlayer = "O";
+  statusEl.textContent = "AI is thinking...";
 
-  if (aiEnabled && currentPlayer === "O") {
-    setTimeout(aiMove, 400);
+  if (aiEnabled) {
+    setTimeout(aiMove, 300);
   }
 }
 
@@ -178,8 +182,18 @@ function makeMove(i, player) {
 }
 
 function aiMove() {
-  const empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
-  const move = empty[Math.floor(Math.random()*empty.length)];
+  let move;
+
+  if (difficulty === "easy") {
+    move = randomMove();
+  } 
+  else if (difficulty === "medium") {
+    move = Math.random() < 0.5 ? randomMove() : bestMove();
+  } 
+  else {
+    move = bestMove();
+  }
+
   makeMove(move, "O");
 
   if (checkGame()) return;
@@ -188,21 +202,85 @@ function aiMove() {
   statusEl.textContent = "Player X's turn";
 }
 
-function checkGame() {
-  for (let w of wins) {
-    const [a,b,c] = w;
-    if (board[a] && board[a]===board[b] && board[a]===board[c]) {
-      w.forEach(i=>boardEl.children[i].classList.add("win"));
-      statusEl.textContent = `Player ${board[a]} wins!`;
-      winSound.play();
-      gameActive = false;
-      return true;
+function randomMove() {
+  const empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+  return empty[Math.floor(Math.random() * empty.length)];
+}
+
+function bestMove() {
+  let bestScore = -Infinity;
+  let move;
+
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === "") {
+      board[i] = "O";
+      let score = minimax(board, 0, false);
+      board[i] = "";
+      if (score > bestScore) {
+        bestScore = score;
+        move = i;
+      }
     }
   }
+  return move;
+}
 
-  if (!board.includes("")) {
-    statusEl.textContent = "It's a draw!";
-    drawSound.play();
+function minimax(boardState, depth, isMaximizing) {
+  let result = checkWinner(boardState);
+  if (result !== null) {
+    return result === "O" ? 10 - depth :
+           result === "X" ? depth - 10 : 0;
+  }
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (boardState[i] === "") {
+        boardState[i] = "O";
+        bestScore = Math.max(bestScore, minimax(boardState, depth + 1, false));
+        boardState[i] = "";
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (boardState[i] === "") {
+        boardState[i] = "X";
+        bestScore = Math.min(bestScore, minimax(boardState, depth + 1, true));
+        boardState[i] = "";
+      }
+    }
+    return bestScore;
+  }
+}
+
+function checkWinner(b) {
+  for (let w of wins) {
+    const [a,b1,c] = w;
+    if (b[a] && b[a] === b[b1] && b[a] === b[c]) {
+      return b[a];
+    }
+  }
+  if (!b.includes("")) return "draw";
+  return null;
+}
+
+function checkGame() {
+  let winner = checkWinner(board);
+  if (winner) {
+    if (winner === "draw") {
+      statusEl.textContent = "It's a draw!";
+      drawSound.play();
+    } else {
+      statusEl.textContent = `${winner === "O" ? "AI" : "Player X"} wins!`;
+      winSound.play();
+      wins.forEach(w => {
+        if (w.every(i => board[i] === winner)) {
+          w.forEach(i => boardEl.children[i].classList.add("win"));
+        }
+      });
+    }
     gameActive = false;
     return true;
   }
@@ -221,6 +299,14 @@ function toggleAI() {
   aiEnabled = !aiEnabled;
   resetGame();
   event.target.textContent = aiEnabled ? "Mode: VS AI" : "Mode: 2 Players";
+}
+
+function changeDifficulty() {
+  let index = difficulties.indexOf(difficulty);
+  difficulty = difficulties[(index + 1) % difficulties.length];
+  resetGame();
+  event.target.textContent =
+    "Difficulty: " + difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 }
 
 function toggleTheme() {
