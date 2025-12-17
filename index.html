@@ -1,30 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Premium Tic Tac Toe</title>
 
 <style>
 :root {
+  --bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
   --glass: rgba(255,255,255,0.15);
   --border: rgba(255,255,255,0.25);
   --x: #00e5ff;
   --o: #ff4081;
 }
 
+.neon {
+  --bg: radial-gradient(circle at top, #120458, #000);
+  --x: #00fff0;
+  --o: #ff00ff;
+}
+
 * {
   box-sizing: border-box;
-  font-family: "Poppins", system-ui, sans-serif;
+  font-family: Poppins, system-ui;
 }
 
 body {
   margin: 0;
   height: 100vh;
-  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  background: var(--bg);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   color: white;
 }
 
@@ -32,68 +39,42 @@ body {
   background: var(--glass);
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 30px;
+  padding: 25px;
   width: 340px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
   border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
   text-align: center;
 }
 
-h1 {
-  margin: 0 0 15px;
-  font-weight: 600;
-}
+h1 { margin: 0 0 10px; }
 
-.status {
-  margin-bottom: 15px;
-  font-size: 1.1rem;
-  opacity: 0.9;
-}
+.status { margin-bottom: 10px; }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3,1fr);
   gap: 12px;
 }
 
 .cell {
   aspect-ratio: 1;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.12);
   border-radius: 16px;
   font-size: 2.8rem;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition: 0.2s;
 }
 
 .cell:hover {
-  transform: scale(1.05);
+  transform: scale(1.06);
   background: rgba(255,255,255,0.2);
 }
 
 .cell.x { color: var(--x); }
 .cell.o { color: var(--o); }
-
-button {
-  margin-top: 20px;
-  padding: 12px;
-  width: 100%;
-  border-radius: 14px;
-  border: none;
-  background: linear-gradient(135deg, #00e5ff, #2979ff);
-  color: black;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-button:hover {
-  opacity: 0.85;
-}
 
 .win {
   animation: glow 0.8s infinite alternate;
@@ -103,76 +84,129 @@ button:hover {
   from { box-shadow: 0 0 10px currentColor; }
   to { box-shadow: 0 0 25px currentColor; }
 }
+
+.controls button {
+  margin-top: 10px;
+  padding: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  background: linear-gradient(135deg, #00e5ff, #2979ff);
+}
+
+.secondary {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
 </style>
 </head>
 
 <body>
 <div class="game">
-  <h1>Tic Tac Toe</h1>
+  <h1>🎮 Tic Tac Toe</h1>
   <div class="status" id="status">Player X's turn</div>
 
   <div class="board" id="board"></div>
 
-  <button onclick="resetGame()">Restart</button>
+  <div class="controls">
+    <button class="primary" onclick="resetGame()">Restart</button>
+    <button class="secondary" onclick="toggleAI()">Mode: 2 Players</button>
+    <button class="secondary" onclick="toggleTheme()">Toggle Theme</button>
+  </div>
 </div>
+
+<!-- Sounds -->
+<audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3"></audio>
+<audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3"></audio>
+<audio id="drawSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.mp3"></audio>
 
 <script>
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 
+const clickSound = document.getElementById("clickSound");
+const winSound = document.getElementById("winSound");
+const drawSound = document.getElementById("drawSound");
+
 let board = Array(9).fill("");
 let currentPlayer = "X";
 let gameActive = true;
+let aiEnabled = false;
 
-const winPatterns = [
-  [0,1,2],[3,4,5],[6,7,8],
-  [0,3,6],[1,4,7],[2,5,8],
-  [0,4,8],[2,4,6]
+const wins = [
+ [0,1,2],[3,4,5],[6,7,8],
+ [0,3,6],[1,4,7],[2,5,8],
+ [0,4,8],[2,4,6]
 ];
 
 function createBoard() {
   boardEl.innerHTML = "";
   board.forEach((_, i) => {
     const cell = document.createElement("div");
-    cell.classList.add("cell");
-    cell.addEventListener("click", () => handleClick(i));
+    cell.className = "cell";
+    cell.onclick = () => handleMove(i);
     boardEl.appendChild(cell);
   });
 }
 
-function handleClick(i) {
+function handleMove(i) {
   if (!gameActive || board[i]) return;
 
-  board[i] = currentPlayer;
-  const cell = boardEl.children[i];
-  cell.textContent = currentPlayer;
-  cell.classList.add(currentPlayer.toLowerCase());
+  makeMove(i, currentPlayer);
 
-  if (checkWin()) {
-    statusEl.textContent = `Player ${currentPlayer} wins!`;
-    gameActive = false;
-    return;
+  if (checkGame()) return;
+
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  statusEl.textContent = `Player ${currentPlayer}'s turn`;
+
+  if (aiEnabled && currentPlayer === "O") {
+    setTimeout(aiMove, 400);
+  }
+}
+
+function makeMove(i, player) {
+  board[i] = player;
+  const cell = boardEl.children[i];
+  cell.textContent = player;
+  cell.classList.add(player.toLowerCase());
+  clickSound.play();
+}
+
+function aiMove() {
+  const empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+  const move = empty[Math.floor(Math.random()*empty.length)];
+  makeMove(move, "O");
+
+  if (checkGame()) return;
+
+  currentPlayer = "X";
+  statusEl.textContent = "Player X's turn";
+}
+
+function checkGame() {
+  for (let w of wins) {
+    const [a,b,c] = w;
+    if (board[a] && board[a]===board[b] && board[a]===board[c]) {
+      w.forEach(i=>boardEl.children[i].classList.add("win"));
+      statusEl.textContent = `Player ${board[a]} wins!`;
+      winSound.play();
+      gameActive = false;
+      return true;
+    }
   }
 
   if (!board.includes("")) {
     statusEl.textContent = "It's a draw!";
+    drawSound.play();
     gameActive = false;
-    return;
+    return true;
   }
-
-  currentPlayer = currentPlayer === "X" ? "O" : "X";
-  statusEl.textContent = `Player ${currentPlayer}'s turn`;
-}
-
-function checkWin() {
-  return winPatterns.some(pattern => {
-    const [a,b,c] = pattern;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      pattern.forEach(i => boardEl.children[i].classList.add("win"));
-      return true;
-    }
-    return false;
-  });
+  return false;
 }
 
 function resetGame() {
@@ -181,6 +215,16 @@ function resetGame() {
   gameActive = true;
   statusEl.textContent = "Player X's turn";
   createBoard();
+}
+
+function toggleAI() {
+  aiEnabled = !aiEnabled;
+  resetGame();
+  event.target.textContent = aiEnabled ? "Mode: VS AI" : "Mode: 2 Players";
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("neon");
 }
 
 createBoard();
