@@ -160,18 +160,24 @@ function createBoard() {
 }
 
 function handleMove(i) {
-  if (!gameActive || board[i]) return;
+  if (!gameActive || board[i]) return; // If the game is not active or the cell is already filled, return.
 
-  makeMove(i, "X");
+  // Make the move for the current player
+  makeMove(i, currentPlayer);
+
+  // Check if the game has been won or ended in a draw after this move
   if (checkGame()) return;
 
-  currentPlayer = "O";
-  statusEl.textContent = "AI is thinking...";
+  // Switch player turn (from X to O or vice versa) for 2-player mode
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  statusEl.textContent = `${currentPlayer === "X" ? "Player X" : "Player O"}'s turn`;
 
-  if (aiEnabled) {
+  // If AI is enabled, let the AI make its move after a short delay
+  if (aiEnabled && currentPlayer === "O") {
     setTimeout(aiMove, 300);
   }
 }
+
 
 function makeMove(i, player) {
   board[i] = player;
